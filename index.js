@@ -5,6 +5,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import usersRouter from './route/users.js';
 import productRouter from './route/product.js';
+import order from './route/order.js';
+import company from './route/company.js';
+
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -20,6 +23,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Routes
 app.use('/users', usersRouter);
 app.use('/products', productRouter);
+app.use('/orders', order);
+app.use('/company', company);
 
 app.get('/', (req, res) => {
   res.send('Welcome to API!');
