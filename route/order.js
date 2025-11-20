@@ -16,29 +16,50 @@ async function generateOrderNumber() {
 // GET all orders with optional filters
 router.get('/', async (req, res) => {
   try {
-    const { customer_name, status, phone_number, order_number } = req.query;
-    let query = db('orders');
+    const { customer_name, status, payment_status, page = 1, limit = 10 } = req.query;
 
+    // Default pagination (page and limit)
+    const offset = (page - 1) * limit;
+
+    let query = db('orders')
+      .offset(offset)
+      .limit(limit)
+      .orderBy('id', 'desc'); // Sort by 'id' descending for LIFO
+
+    // Apply filters if provided
     if (customer_name) {
       query = query.where('customer_name', 'like', `%${customer_name}%`);
     }
+
     if (status) {
       query = query.where('status', status);
     }
-    if (phone_number) {
-      query = query.where('phone_number', 'like', `%${phone_number}%`);
-    }
-    if (order_number) {
-      query = query.where('order_number', order_number); // exact match
+
+    if (payment_status) {
+      query = query.where('payment_status', payment_status);
     }
 
+    // Execute query and fetch orders
     const orders = await query.select('*');
-    res.status(200).json({ orders });
+
+    // Count total orders without pagination (for metadata purposes)
+    const totalOrders = await db('orders').count('* as count').first();
+
+    res.status(200).json({
+      orders,
+      pagination: {
+        total: totalOrders.count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+      },
+    });
   } catch (err) {
     console.error('GET /orders error:', err);
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
+
+
 
 // GET single order by ID
 router.get('/:id', async (req, res) => {
@@ -61,7 +82,7 @@ router.get('/:id', async (req, res) => {
 // POST create a new order
 router.post('/', async (req, res) => {
   try {
-    const { customer_name, email, phone_number, address, status = 'pending', items } = req.body;
+    const { customer_name, email, phone_number, address, status = 'pending',payment_status='not paid', items } = req.body;
 
     if (!customer_name || !email || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Required fields missing or items empty' });
@@ -97,6 +118,7 @@ router.post('/', async (req, res) => {
         phone_number,
         address,
         status,
+        payment_status,
         items: JSON.stringify(items),
         total_amount
       });
@@ -113,7 +135,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { customer_name, email, phone_number, address, status, items, total_amount } = req.body;
+    const { status,payment_status } = req.body;
 
     const order = await db('orders').where({ id }).first();
     if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -121,13 +143,9 @@ router.put('/:id', async (req, res) => {
    await db('orders')
   .where({ id })
   .update({
-    customer_name: customer_name || order.customer_name,
-    email: email || order.email,
-    phone_number: phone_number || order.phone_number,
-    address: address || order.address,
+   
     status: status || order.status,
-    items: items ? JSON.stringify(items) : order.items, // ✅ stringify
-    total_amount: total_amount || order.total_amount
+    payment_status: payment_status || order.payment_status,
   });
 
 

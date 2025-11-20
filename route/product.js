@@ -12,7 +12,7 @@ const __dirname = dirname(__filename);
 const router = express.Router();
 
 // Ensure 'uploads' folder exists
-const uploadDir = path.join(__dirname, '../uploads');
+const uploadDir = path.join(__dirname, '../uploads/products');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -34,13 +34,29 @@ const upload = multer({ storage });
 // GET all products
 router.get('/', async (req, res) => {
   try {
-    const products = await db('products').select('*');
+    const { name, category } = req.query;
+
+    let query = db('products').select('*');
+
+    // Filter by product name
+    if (name) {
+      query = query.where('name', 'like', `%${name}%`);
+    }
+
+    // Filter by category
+    if (category && category !== 'all') {
+      query = query.where('category', category);
+    }
+
+    const products = await query;
     res.json(products);
+
   } catch (err) {
     console.error('GET /products error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // POST create a new product with image upload
 router.post('/', upload.any(), async (req, res) => {
@@ -52,7 +68,7 @@ router.post('/', upload.any(), async (req, res) => {
       name,
       description,
       price,
-      quantity,
+      // quantity,
       category,
       status,
       stock,
@@ -61,7 +77,7 @@ router.post('/', upload.any(), async (req, res) => {
     } = req.body;
 
     // Basic validation
-    if (!name || !price || !quantity || !category || !status ) {
+    if (!name || !price || !category || !status ) {
       return res.status(400).json({ error: 'Required fields missing' });
     }
 console.log('req.body:', req.body);
@@ -69,17 +85,17 @@ console.log('req.files:', req.files);
 
     // pick first uploaded file (if any)
     const file = (req.files && req.files.length) ? req.files[0] : null;
-    const imageUrl = file ? `/uploads/${file.filename}` : '';
+    const imageUrl = file ? `/uploads/products/${file.filename}` : '';
 
     const newProduct = {
       name,
       description: description || '',
       price,
-      quantity,
+      // quantity,
       category,
       status,
       images: imageUrl,
-      stock: stock || quantity,
+      stock: stock ,
       discount: discount || '0',
       discount_price: discount_price || price
     };
@@ -101,7 +117,7 @@ router.put('/:id', upload.any(), async (req, res) => {
       name,
       description,
       price,
-      quantity,
+      // quantity,
       category,
       status,
       stock,
@@ -113,13 +129,13 @@ router.put('/:id', upload.any(), async (req, res) => {
     if (!existingProduct) return res.status(404).json({ error: 'Product not found' });
 
     const file = (req.files && req.files.length) ? req.files[0] : null;
-    const imageUrl = file ? `/uploads/${file.filename}` : existingProduct.images;
+    const imageUrl = file ? `/uploads/products/${file.filename}` : existingProduct.images;
 
     const updatedProduct = {
       name: name || existingProduct.name,
       description: description || existingProduct.description,
       price: price || existingProduct.price,
-      quantity: quantity || existingProduct.quantity,
+      // quantity: quantity || existingProduct.quantity,
       category: category || existingProduct.category,
       status: status || existingProduct.status,
       stock: stock || existingProduct.stock,
